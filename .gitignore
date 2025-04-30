@@ -1,2 +1,3 @@
 # FIles to ignore
 server/.env
+server/__pycache__
