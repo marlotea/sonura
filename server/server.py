@@ -5,15 +5,16 @@ import os
 import sqlalchemy
 
 from routes.routes import check_version
-from db.dbConnect import Session_Local, engine
+from db.dbConnect import Session_Local, engine, create_tables
 
 app = FastAPI()
 
 @app.on_event("startup")
-def startup():
+async def startup():
     try:
         with engine.connect() as connection:
             print("Connected to db")
+            create_tables()
     except Exception as e:
         print(f"Failed to connect to db. Error: {e}")
 
