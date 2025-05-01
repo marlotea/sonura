@@ -1,3 +1,11 @@
 # FIles to ignore
 server/.env
 server/__pycache__
+
+# venv files that may be made that should not be in the repo 
+server/routes/__pycache__/routes.cpython-313.pyc
+server/routes/__pycache__/__init__.cpython-313.pyc
+server/db/__pycache__/dbConnect.cpython-313.pyc
+server/db/__pycache__/__init__.cpython-313.pyc
+server/models/__pycache__/__init__.cpython-313.pyc
+server/models/__pycache__/UserModels.cpython-313.pyc
