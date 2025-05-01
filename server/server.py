@@ -4,8 +4,10 @@ import requests as req
 import os
 import sqlalchemy
 
+# our modules
 from routes.routes import check_version
 from db.dbConnect import Session_Local, engine, create_tables
+from spotify_endpoints.spotify_endpoints import get_client, get_token
 
 app = FastAPI()
 
@@ -25,6 +27,19 @@ def shutdown():
 @app.get("/")
 async def root():
     return {"message": "Success"}
+
+@app.get("/test")
+def get_spotify_data():
+    id, secret = get_client()
+    return {
+        "client_id" : id,
+        "client_secret" : secret
+    }
+
+@app.get("/spotify-token")
+def get_spotify_token():
+    token = get_token()
+    return {"token" : token}
 
 
 @app.get("/db")
