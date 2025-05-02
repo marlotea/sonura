@@ -1,5 +1,5 @@
 from typing import Union, Annotated
-from fastapi import FastAPI, Header
+from fastapi import FastAPI, Header, Request
 import requests as req
 import os
 import sqlalchemy
@@ -82,8 +82,16 @@ async def check_db():
     info = await check_version()
     return info
 
+@app.get("/login")
+def log_in():
+    return login()
+
+@app.get("/callback")
+async def callback(req: Request):
+    return await callback_func(req)
 
 @app.get("/playlists")
-async def get_playlists():
-    res = await get_user_playlist()
-    return {"playlists": res}
+def get_playlists():
+    return {
+        "playlists" : get_user_playlists()
+    }
