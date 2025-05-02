@@ -56,7 +56,7 @@ def get_spotify_auth():
 def search_artist(artist_name: Artist):
     token = get_token()
     try:
-        name = serach_for_artist(token, artist_name)
+        name = search_for_artist(token, artist_name)
         return {"res": name}
     except Exception as e:
         return {"Error": e}
@@ -70,7 +70,7 @@ def get_id_artist(artist_name: Artist):
 
 
 @app.get("/artist-top-tracks")
-def get_top_tracks(artist_name: Artist):
+def get_artists_top_tracks(artist_name: Artist):
     token = get_token()
     id = get_artist_id(token, artist_name)
     top_tracks = get_songs_by_artist(token, id)
@@ -94,4 +94,22 @@ async def callback(req: Request):
 def get_playlists():
     return {
         "playlists" : get_user_playlists()
+    }
+    
+@app.get("/top-artists/{timePeriod}")
+def get_top_artists(timePeriod : int):
+    return {
+        "top-artists" : get_user_top_artists(timePeriod)
+    }
+    
+@app.get("/top-tracks/{timePeriod}")
+def get_top_tracks(timePeriod : int):
+    return {
+        "top-tracks" : get_user_top_tracks(timePeriod)
+    }
+
+@app.get("/top-genres/{timePeriod}")
+def get_top_genres(timePeriod : int):
+    return {
+        "top-genres" : get_user_top_genres(timePeriod)
     }

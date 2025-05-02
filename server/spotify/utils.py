@@ -9,6 +9,7 @@ from spotipy import Spotify
 from spotipy.oauth2 import SpotifyOAuth
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi import Request
+from collections import defaultdict
 
 load_dotenv()
 
@@ -19,8 +20,8 @@ class Artist(BaseModel):
 
 client_id = os.getenv("SPOTIFY_CLIENT_ID")
 client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
-redirect_uri = "http://127.0.0.1:8000/callback"
-scope = "user-read-private user-read-email playlist-read-private playlist-read-collaborative"
+redirect_uri = "http://127.0.0.1:8000/callback" # temp
+scope = "user-read-private user-read-email playlist-read-private playlist-read-collaborative user-top-read" # should move to a type file
 
 sp_oauth = SpotifyOAuth(
     client_id=client_id,
@@ -31,6 +32,7 @@ sp_oauth = SpotifyOAuth(
     cache_path=".spotify_cache"
 )
 
+# temp var - should store in a cookie later
 user_access_token = None
 
 sp = Spotify(user_access_token)
@@ -96,12 +98,13 @@ def get_songs_by_artist(token, artist_id):
 
 # Functiosn below are the acc useful ones for this project 
 
+# redirect the user to the spotify site to get perms
 def login():
     auth_url = sp_oauth.get_authorize_url()
     # return RedirectResponse(auth_url)
     return auth_url
 
-# get the different tokens from spotify
+# get the different tokens from spotify, should store the tokens in a cookie or something
 async def callback_func(req: Request):
     code = req.query_params.get("code")
     if not code:
@@ -117,9 +120,12 @@ async def callback_func(req: Request):
                 {"error": "Failed to retrieve access token"},
                 status_code=500
             )
+            
+        # modify this to store tokens in a https cookie
         global user_access_token, sp
         user_access_token = token_info["access_token"]
         sp = Spotify(auth=user_access_token)
+        
         return JSONResponse({
             "access_token": token_info["access_token"],
             "refresh_token": token_info.get("refresh_token"),
@@ -141,4 +147,34 @@ def get_user_playlists():
     res = []
     for playlist in playlists["items"]:
         res.append(playlist["name"])
+    return res
+
+# store this in a type file later
+time_ranges = {
+    1 : "short_term",
+    2 : "medium_term",
+    3 : "long_term"
+}
+
+def get_user_top_artists(time_range: int):
+    top_artists = sp.current_user_top_artists(time_range=time_ranges[time_range])
+    res = []
+    for artist in top_artists["items"]:
+        res.append(artist)
+    return res
+
+def get_user_top_tracks(time_range : int):
+    top_tracks = sp.current_user_top_tracks(time_range=time_ranges[time_range])
+    res = []
+    for track in top_tracks["items"]:
+        res.append(track["name"])
+    return res
+
+# returns a hashmap of genres and its "popularity" for the user, counts its frequency among the users favourite artists
+def get_user_top_genres(time_range : int):
+    top_artists = get_user_top_artists(time_range)
+    res = defaultdict(int)
+    for artist in top_artists:
+        for genre in artist["genres"]:
+            res[genre] += 1
     return res
