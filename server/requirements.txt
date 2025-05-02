@@ -1,0 +1,7 @@
+fastapi
+requests
+psycopg2
+dotenv
+bcrypt
+sqlalchemy
+spotipy
