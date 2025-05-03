@@ -9,13 +9,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from routes.routes import check_version
 from db.dbConnect import Session_Local, engine, create_tables
 from spotify.utils import *
-from middleware.middleware import TokenMiddleware
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    TokenMiddleware,
     allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
