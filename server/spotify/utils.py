@@ -63,37 +63,6 @@ def get_auth_header(token):
     return {"Authorization": "Bearer " + token}
 
 
-def search_for_artist(token, artist_name):
-    url = "https://api.spotify.com/v1/search"
-    headers = get_auth_header(token)
-
-    # query will use a comma delimited list for type
-    query = f"q={artist_name}&type=artist&limit=1"
-
-    query_url = url + "?" + query
-    result = get(query_url, headers=headers)
-    json_result = json.loads(result.content)["artists"]["items"]
-    if len(json_result) == 0:
-        raise Exception("No artist found")
-    return json_result[0]
-
-
-def get_artist_id(token, artist_name):
-    result = search_for_artist(token, artist_name)
-    return result["id"]
-
-
-def get_songs_by_artist(token, artist_id):
-    url = f"https://api.spotify.com/v1/artists/{artist_id}/top-tracks?country=US"
-    headers = get_auth_header(token)
-    result = get(url, headers=headers)
-    json_result = json.loads(result.content)["tracks"]
-    songs = []
-    for i, song in enumerate(json_result):
-        songs.append(song["name"])
-    return songs
-
-
 # Functiosn below are the acc useful ones for this project
 
 
@@ -180,7 +149,7 @@ def get_user_playlists():
 time_ranges = {1: "short_term", 2: "medium_term", 3: "long_term"}
 
 
-def get_user_top_artists(time_range: int):
+def get_user_top_artists(sp: Spotify, time_range: int):
     top_artists = sp.current_user_top_artists(time_range=time_ranges[time_range])
     res = []
     for artist in top_artists["items"]:
@@ -188,8 +157,8 @@ def get_user_top_artists(time_range: int):
     return res
 
 
-def get_user_top_tracks(time_range: int):
-    top_tracks = sp.current_user_top_tracks(time_range=time_ranges[time_range])
+def get_user_top_tracks(sp: Spotify, time_range: int, limit: int):
+    top_tracks = sp.current_user_top_tracks(time_range=time_ranges[time_range], limit=limit)
     res = []
     for track in top_tracks["items"]:
         res.append(track["name"])
@@ -197,7 +166,7 @@ def get_user_top_tracks(time_range: int):
 
 
 # returns a hashmap of genres and its "popularity" for the user, counts its frequency among the users favourite artists
-def get_user_top_genres(time_range: int):
+def get_user_top_genres(sp: Spotify, time_range: int):
     top_artists = get_user_top_artists(time_range)
     res = defaultdict(int)
     for artist in top_artists:
@@ -206,9 +175,9 @@ def get_user_top_genres(time_range: int):
     return res
 
 
-# def get_user_data():
-#     user_info = sp.current_user()
-#     return user_info
+def get_user_data(sp: Spotify):
+    user_info = sp.current_user()
+    return user_info
 
 
 def get_user_id():

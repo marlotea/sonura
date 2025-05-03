@@ -95,45 +95,14 @@ async def check_db():
     return info
 
 
-# @app.get("/login")
-# def log_in():
-#     return login()
-
-
-# @app.get("/callback")
-# async def callback(request: Request, response: Response):
-#     return await callback_func(request, response)
-
-
 # @app.get("/playlists")
 # def get_playlists():
 #     return {"playlists": get_user_playlists()}
-
-
-# @app.get("/top-artists/{timePeriod}")
-# def get_top_artists(timePeriod: int):
-#     return {"top-artists": get_user_top_artists(timePeriod)}
-
-
-# @app.get("/top-tracks/{timePeriod}")
-# def get_top_tracks(timePeriod: int):
-#     return {"top-tracks": get_user_top_tracks(timePeriod)}
-
-
-# @app.get("/top-genres/{timePeriod}")
-# def get_top_genres(timePeriod: int):
-#     return {"top-genres": get_user_top_genres(timePeriod)}
-
 
 # @app.get("/check-cookie")
 # def check_cookie(req: Request):
 #     token = req.cookies.get("access_token")
 #     return {"token": token}
-
-
-# @app.get("/user-spotify-data")
-# def user_info():
-#     return {"user": get_user_data()}
 
 
 # @app.get("/user-id")

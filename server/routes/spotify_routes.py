@@ -29,9 +29,9 @@ async def callback(request: Request, response: Response):
 
 
 @router.get("/user-data")
-def get_user_data(req: Request, res: Response):
+def get_user_spotify_data(req: Request, res: Response):
     sp = get_spotify_client(req, res)
-    user_info = sp.current_user()
+    user_info = get_user_data(sp)
     return {
         "user" : user_info
     }
@@ -40,5 +40,22 @@ def get_user_data(req: Request, res: Response):
 @router.get("/user-id")
 def get_user_spotify_id(req: Request, res: Response):
     sp = get_spotify_client(req, res)
-    user_info = sp.current_user()
+    user_info = get_user_data(sp)
     return user_info["id"]
+
+@router.get("/top-artists/{timePeriod}")
+def get_top_artists(req: Request, res: Response, timePeriod: int):
+    sp = get_spotify_client(req, res)
+    return {"top-artists": get_user_top_artists(sp, timePeriod)}
+
+
+@router.get("/top-tracks/{timePeriod}/{limit}")
+def get_top_tracks(req: Request, res: Response, timePeriod: int, limit: int):
+    sp = get_spotify_client(req, res)
+    return {"top-tracks": get_user_top_tracks(sp, timePeriod, limit)}
+
+
+@router.get("/top-genres/{timePeriod}")
+def get_top_genres(req: Request, res: Response, timePeriod: int):
+    sp = get_spotify_client(req, res)
+    return {"top-genres": get_user_top_genres(sp, timePeriod)}
