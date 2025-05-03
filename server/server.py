@@ -126,3 +126,13 @@ def get_top_genres(timePeriod: int):
 def check_cookie(req: Request):
     token = req.cookies.get("access_token")
     return {"token": token}
+
+
+@app.get("/user-spotify-data")
+def user_info():
+    return {"user": get_user_data()}
+
+
+@app.get("/user-id")
+def get_id():
+    return {"id": get_user_id()}

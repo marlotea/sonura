@@ -103,8 +103,8 @@ def get_songs_by_artist(token, artist_id):
 # redirect the user to the spotify site to get perms
 def login():
     auth_url = sp_oauth.get_authorize_url()
-    # return RedirectResponse(auth_url)
-    return auth_url
+    return RedirectResponse(auth_url)
+    # return auth_url
 
 
 def get_spotify_client(token=None):
@@ -203,3 +203,13 @@ def get_user_top_genres(time_range: int):
         for genre in artist["genres"]:
             res[genre] += 1
     return res
+
+
+def get_user_data():
+    user_info = sp.current_user()
+    return user_info
+
+
+def get_user_id():
+    user_info = get_user_data()
+    return user_info["id"]
