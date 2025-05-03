@@ -133,7 +133,7 @@ async def callback_func(req: Request, res: Response):
         user_access_token = token_info["access_token"]
         sp = Spotify(auth=user_access_token)
 
-        frontend_url = "http://localhost:3000/login?auth=success"
+        frontend_url = "http://127.0.0.1:3000/login?auth=success"
         redirect_response = RedirectResponse(url=frontend_url)
 
         redirect_response.set_cookie(
