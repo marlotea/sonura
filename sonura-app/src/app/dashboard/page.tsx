@@ -11,27 +11,38 @@ export default function Page() {
 
 	useEffect(() => {
 		const fetchUserData = async () => {
+			console.log("Starting fetch for user data...");
+	
 			try {
 				const response = await fetch("/api/spotify/user-data", {
 					credentials: "include",
 				});
-
+	
+				console.log("Response status:", response.status);
+	
 				if (!response.ok) {
+					const errorText = await response.text();
+					console.error("Fetch failed with response:", errorText);
 					throw new Error("Failed to fetch user data");
 				}
-
+	
 				const data = await response.json();
+				console.log("Fetched user data:", data);
+	
 				setUserData(data.user);
 			} catch (err) {
 				console.error("Error fetching user data:", err);
 				setError(err.message);
 			} finally {
 				setIsLoading(false);
+				console.log("Finished fetch attempt");
 			}
 		};
-
+	
 		fetchUserData();
 	}, []);
+	
+	console.log("Render - userData:", userData);
 
 	return (
 		<AuroraBackground>
@@ -47,12 +58,15 @@ export default function Page() {
 								<div className="flex flex-col items-center gap-2">
 									<div className="w-45 h-45 rounded-full bg-gray-300"></div>
 									<p className="bold text-xl">
-										{isLoading
-											? "Loading..."
-											: error
-												? "Error loading username"
-												: userData?.display_name || "No username"}
-									</p>
+									{isLoading
+										? "Loading..."
+										: error
+											? "Error loading username"
+											: userData
+												? userData.display_name
+												: "No username"}
+								</p>
+
 									<p>[status] connected to Spotify</p>
 									<p>your taste:</p>
 								</div>

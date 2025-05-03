@@ -32,7 +32,9 @@ async def callback(request: Request, response: Response):
 def get_user_data(req: Request, res: Response):
     sp = get_spotify_client(req, res)
     user_info = sp.current_user()
-    return user_info
+    return {
+        "user" : user_info
+    }
 
 
 @router.get("/user-id")
