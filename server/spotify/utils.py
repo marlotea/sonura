@@ -8,8 +8,10 @@ import spotipy
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyOAuth
 from fastapi.responses import RedirectResponse, JSONResponse
-from fastapi import Request, Response
+from fastapi import Request, Response, HTTPException
 from collections import defaultdict
+from datetime import datetime, timedelta
+import time
 
 load_dotenv()
 
@@ -20,7 +22,7 @@ class Artist(BaseModel):
 
 client_id = os.getenv("SPOTIFY_CLIENT_ID")
 client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
-redirect_uri = "http://127.0.0.1:8000/callback"  # temp
+redirect_uri = "http://127.0.0.1:8000/spotify/callback"  # temp
 # redirect_uri = "http://localhost:3000/login"
 scope = "user-read-private user-read-email playlist-read-private playlist-read-collaborative user-top-read"  # should move to a type file
 
@@ -32,11 +34,6 @@ sp_oauth = SpotifyOAuth(
     show_dialog=True,
     cache_path=".spotify_cache",
 )
-
-# temp var - should store in a cookie later
-user_access_token = None
-
-sp = Spotify(user_access_token)
 
 
 def get_client():
@@ -66,37 +63,6 @@ def get_auth_header(token):
     return {"Authorization": "Bearer " + token}
 
 
-def search_for_artist(token, artist_name):
-    url = "https://api.spotify.com/v1/search"
-    headers = get_auth_header(token)
-
-    # query will use a comma delimited list for type
-    query = f"q={artist_name}&type=artist&limit=1"
-
-    query_url = url + "?" + query
-    result = get(query_url, headers=headers)
-    json_result = json.loads(result.content)["artists"]["items"]
-    if len(json_result) == 0:
-        raise Exception("No artist found")
-    return json_result[0]
-
-
-def get_artist_id(token, artist_name):
-    result = search_for_artist(token, artist_name)
-    return result["id"]
-
-
-def get_songs_by_artist(token, artist_id):
-    url = f"https://api.spotify.com/v1/artists/{artist_id}/top-tracks?country=US"
-    headers = get_auth_header(token)
-    result = get(url, headers=headers)
-    json_result = json.loads(result.content)["tracks"]
-    songs = []
-    for i, song in enumerate(json_result):
-        songs.append(song["name"])
-    return songs
-
-
 # Functiosn below are the acc useful ones for this project
 
 
@@ -105,12 +71,6 @@ def login():
     auth_url = sp_oauth.get_authorize_url()
     return RedirectResponse(auth_url)
     # return auth_url
-
-
-def get_spotify_client(token=None):
-    if token:
-        return Spotify(auth=token)
-    return Spotify(auth=user_access_token)
 
 
 # get the different tokens from spotify, should store the tokens in a cookie or something
@@ -133,7 +93,7 @@ async def callback_func(req: Request, res: Response):
         user_access_token = token_info["access_token"]
         sp = Spotify(auth=user_access_token)
 
-        frontend_url = "http://localhost:3000/login?auth=success"
+        frontend_url = "http://127.0.0.1:3000/login?auth=success"
         redirect_response = RedirectResponse(url=frontend_url)
 
         redirect_response.set_cookie(
@@ -149,6 +109,16 @@ async def callback_func(req: Request, res: Response):
             redirect_response.set_cookie(
                 key="refresh_token",
                 value=token_info["refresh_token"],
+                httponly=True,
+                secure=False,
+                samesite="lax",
+                path="/",
+            )
+
+        if "expires_at" in token_info:
+            redirect_response.set_cookie(
+                key="expires_at",
+                value=token_info["expires_at"],
                 httponly=True,
                 secure=False,
                 samesite="lax",
@@ -179,7 +149,7 @@ def get_user_playlists():
 time_ranges = {1: "short_term", 2: "medium_term", 3: "long_term"}
 
 
-def get_user_top_artists(time_range: int):
+def get_user_top_artists(sp: Spotify, time_range: int):
     top_artists = sp.current_user_top_artists(time_range=time_ranges[time_range])
     res = []
     for artist in top_artists["items"]:
@@ -187,8 +157,8 @@ def get_user_top_artists(time_range: int):
     return res
 
 
-def get_user_top_tracks(time_range: int):
-    top_tracks = sp.current_user_top_tracks(time_range=time_ranges[time_range])
+def get_user_top_tracks(sp: Spotify, time_range: int, limit: int):
+    top_tracks = sp.current_user_top_tracks(time_range=time_ranges[time_range], limit=limit)
     res = []
     for track in top_tracks["items"]:
         res.append(track["name"])
@@ -196,7 +166,7 @@ def get_user_top_tracks(time_range: int):
 
 
 # returns a hashmap of genres and its "popularity" for the user, counts its frequency among the users favourite artists
-def get_user_top_genres(time_range: int):
+def get_user_top_genres(sp: Spotify, time_range: int):
     top_artists = get_user_top_artists(time_range)
     res = defaultdict(int)
     for artist in top_artists:
@@ -205,7 +175,7 @@ def get_user_top_genres(time_range: int):
     return res
 
 
-def get_user_data():
+def get_user_data(sp: Spotify):
     user_info = sp.current_user()
     return user_info
 
@@ -213,3 +183,26 @@ def get_user_data():
 def get_user_id():
     user_info = get_user_data()
     return user_info["id"]
+
+
+def get_spotify_client(req: Request, res: Response):
+    access_token = req.cookies.get("access_token")
+    refresh_token = req.cookies.get("refresh_token")
+    expires_at = req.cookies.get("expires_at")
+
+    if not access_token or not refresh_token or not expires_at:
+        raise HTTPException(status_code=401, detail="Missing auth tokens")
+
+    # refresh access tokens if expired && update cookies
+    if int(time.time()) >= int(expires_at):
+        token_info = sp_oauth.refresh_access_token(refresh_token)
+        access_token = token_info["access_token"]
+        expires_at = token_info["expires_at"]
+        res.set_cookie(
+            key="access_token", value=access_token, httponly=True, secure=False
+        )
+        res.set_cookie(
+            key="expires_at", value=str(expires_at), httponly=True, secure=False
+        )
+
+    return Spotify(auth=access_token)

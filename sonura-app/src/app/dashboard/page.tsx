@@ -5,36 +5,72 @@ import { Gear, ShareNetwork } from "phosphor-react";
 import { useEffect, useState } from "react";
 
 export default function Page() {
+	const backendUrl = "/api"
 	const [userData, setUserData] = useState(null);
+	const [userTopTracks, setTopTracks] = useState(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState(null);
 
 	useEffect(() => {
 		const fetchUserData = async () => {
+			console.log("Starting fetch for user data...");
+	
 			try {
-				const response = await fetch(
-					"http://127.0.0.1:8000/user-spotify-data",
-					{
-						credentials: "include",
-					},
-				);
-
+				const response = await fetch(`${backendUrl}/spotify/user-data`, {
+					credentials: "include",
+				});
+	
+				console.log("Response status:", response.status);
+	
 				if (!response.ok) {
+					const errorText = await response.text();
+					console.error("Fetch failed with response:", errorText);
 					throw new Error("Failed to fetch user data");
 				}
-
+	
 				const data = await response.json();
+				console.log("Fetched user data:", data);
+	
 				setUserData(data.user);
 			} catch (err) {
 				console.error("Error fetching user data:", err);
 				setError(err.message);
 			} finally {
 				setIsLoading(false);
+				console.log("Finished fetch attempt");
 			}
 		};
 
+		const fetchUserTopTracks = async () => {
+			try {
+				const response = await fetch(`${backendUrl}/spotify/top-tracks/1/10`, {
+					credentials: "include"
+				});
+
+				if (!response.ok) {
+					const errorText = await response.text();
+					console.error("Fetch failed with response:", errorText);
+					throw new Error("Failed to fetch user top tracks");
+				}
+
+				const data = await response.json();
+				console.log("Fetched user top tracks:", data);
+	
+				setTopTracks(data["top-tracks"]);
+			} catch (err) {
+				console.error("Error fetching user top tracks:", err);
+				setError(err.message);
+			} finally {
+				setIsLoading(false);
+				console.log("Finished fetch attempt");
+			}
+		}
+	
 		fetchUserData();
+		fetchUserTopTracks();
 	}, []);
+	
+	console.log("Render - userData:", userData);
 
 	return (
 		<AuroraBackground>
@@ -48,14 +84,27 @@ export default function Page() {
 							<div className="w-1/4 flex flex-col justify-between">
 								{/*  Profile Picture Placeholder  */}
 								<div className="flex flex-col items-center gap-2">
-									<div className="w-45 h-45 rounded-full bg-gray-300"></div>
+								<div className="w-45 h-45 rounded-full bg-gray-300 overflow-hidden">
+									{userData?.images?.length > 0 ? (
+										<img
+											src={userData.images[0].url}
+											alt="Profile"
+											className="w-full h-full object-cover"
+										/>
+									) : (
+										<div className="w-full h-full bg-gray-300" />
+									)}
+								</div>
 									<p className="bold text-xl">
-										{isLoading
-											? "Loading..."
-											: error
-												? "Error loading username"
-												: userData?.display_name || "No username"}
-									</p>
+									{isLoading
+										? "Loading..."
+										: error
+											? "Error loading username"
+											: userData
+												? userData.display_name
+												: "No username"}
+								</p>
+
 									<p>[status] connected to Spotify</p>
 									<p>your taste:</p>
 								</div>
@@ -77,7 +126,20 @@ export default function Page() {
 								</div>
 								<div className="flex flex-row">
 									<div className="w-1/2">Recently Liked Songs</div>
-									<div className="w-1/2">Popular Tracks</div>
+									<div className="w-1/2">
+								<p className="text-lg font-bold mb-2">Popular Tracks</p>
+								{isLoading && <p>Loading tracks...</p>}
+								{error && <p>Error loading tracks</p>}
+								{userTopTracks && userTopTracks.length > 0 ? (
+									<ul className="list-disc list-inside space-y-1">
+										{userTopTracks.map((trackName, index) => (
+											<li key={index}>{trackName}</li>
+										))}
+									</ul>
+								) : (
+									!isLoading && <p>No top tracks found.</p>
+								)}
+							</div>
 								</div>
 							</div>
 						</div>

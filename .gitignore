@@ -1,6 +1,8 @@
 # FIles to ignore
 server/.env
 server/__pycache__
+server/.venv
+server/.spotify_cache
 
 # venv files that may be made that should not be in the repo 
 server/routes/__pycache__/routes.cpython-313.pyc
