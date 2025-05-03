@@ -8,8 +8,10 @@ import spotipy
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyOAuth
 from fastapi.responses import RedirectResponse, JSONResponse
-from fastapi import Request, Response
+from fastapi import Request, Response, HTTPException
 from collections import defaultdict
+from datetime import datetime, timedelta
+import time
 
 load_dotenv()
 
@@ -20,7 +22,7 @@ class Artist(BaseModel):
 
 client_id = os.getenv("SPOTIFY_CLIENT_ID")
 client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
-redirect_uri = "http://127.0.0.1:8000/callback"  # temp
+redirect_uri = "http://127.0.0.1:8000/spotify/callback"  # temp
 # redirect_uri = "http://localhost:3000/login"
 scope = "user-read-private user-read-email playlist-read-private playlist-read-collaborative user-top-read"  # should move to a type file
 
@@ -32,11 +34,6 @@ sp_oauth = SpotifyOAuth(
     show_dialog=True,
     cache_path=".spotify_cache",
 )
-
-# temp var - should store in a cookie later
-user_access_token = None
-
-sp = Spotify(user_access_token)
 
 
 def get_client():
@@ -107,12 +104,6 @@ def login():
     # return auth_url
 
 
-def get_spotify_client(token=None):
-    if token:
-        return Spotify(auth=token)
-    return Spotify(auth=user_access_token)
-
-
 # get the different tokens from spotify, should store the tokens in a cookie or something
 async def callback_func(req: Request, res: Response):
     code = req.query_params.get("code")
@@ -133,7 +124,7 @@ async def callback_func(req: Request, res: Response):
         user_access_token = token_info["access_token"]
         sp = Spotify(auth=user_access_token)
 
-        frontend_url = "http://localhost:3000/login?auth=success"
+        frontend_url = "http://127.0.0.1:3000/login?auth=success"
         redirect_response = RedirectResponse(url=frontend_url)
 
         redirect_response.set_cookie(
@@ -149,6 +140,16 @@ async def callback_func(req: Request, res: Response):
             redirect_response.set_cookie(
                 key="refresh_token",
                 value=token_info["refresh_token"],
+                httponly=True,
+                secure=False,
+                samesite="lax",
+                path="/",
+            )
+
+        if "expires_at" in token_info:
+            redirect_response.set_cookie(
+                key="expires_at",
+                value=token_info["expires_at"],
                 httponly=True,
                 secure=False,
                 samesite="lax",
@@ -205,11 +206,34 @@ def get_user_top_genres(time_range: int):
     return res
 
 
-def get_user_data():
-    user_info = sp.current_user()
-    return user_info
+# def get_user_data():
+#     user_info = sp.current_user()
+#     return user_info
 
 
 def get_user_id():
     user_info = get_user_data()
     return user_info["id"]
+
+
+def get_spotify_client(req: Request, res: Response):
+    access_token = req.cookies.get("access_token")
+    refresh_token = req.cookies.get("refresh_token")
+    expires_at = req.cookies.get("expires_at")
+
+    if not access_token or not refresh_token or not expires_at:
+        raise HTTPException(status_code=401, detail="Missing auth tokens")
+
+    # refresh access tokens if expired && update cookies
+    if int(time.time()) >= int(expires_at):
+        token_info = sp_oauth.refresh_access_token(refresh_token)
+        access_token = token_info["access_token"]
+        expires_at = token_info["expires_at"]
+        res.set_cookie(
+            key="access_token", value=access_token, httponly=True, secure=False
+        )
+        res.set_cookie(
+            key="expires_at", value=str(expires_at), httponly=True, secure=False
+        )
+
+    return Spotify(auth=access_token)

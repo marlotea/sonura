@@ -12,12 +12,9 @@ export default function Page() {
 	useEffect(() => {
 		const fetchUserData = async () => {
 			try {
-				const response = await fetch(
-					"http://127.0.0.1:8000/user-spotify-data",
-					{
-						credentials: "include",
-					},
-				);
+				const response = await fetch("/api/spotify/user-data", {
+					credentials: "include",
+				});
 
 				if (!response.ok) {
 					throw new Error("Failed to fetch user data");

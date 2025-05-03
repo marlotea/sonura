@@ -9,16 +9,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from routes.routes import check_version
 from db.dbConnect import Session_Local, engine, create_tables
 from spotify.utils import *
+from routes.spotify_routes import router as spotify_router
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(spotify_router, prefix="/spotify")
 
 
 @app.on_event("startup")
@@ -54,7 +57,7 @@ def get_spotify_token():
     return {"token": token}
 
 
-@app.get("spotify-auth")
+@app.get("/spotify-auth")
 def get_spotify_auth():
     token = get_token()
     auth_token = get_auth_header(token)
@@ -92,47 +95,47 @@ async def check_db():
     return info
 
 
-@app.get("/login")
-def log_in():
-    return login()
+# @app.get("/login")
+# def log_in():
+#     return login()
 
 
-@app.get("/callback")
-async def callback(request: Request, response: Response):
-    return await callback_func(request, response)
+# @app.get("/callback")
+# async def callback(request: Request, response: Response):
+#     return await callback_func(request, response)
 
 
-@app.get("/playlists")
-def get_playlists():
-    return {"playlists": get_user_playlists()}
+# @app.get("/playlists")
+# def get_playlists():
+#     return {"playlists": get_user_playlists()}
 
 
-@app.get("/top-artists/{timePeriod}")
-def get_top_artists(timePeriod: int):
-    return {"top-artists": get_user_top_artists(timePeriod)}
+# @app.get("/top-artists/{timePeriod}")
+# def get_top_artists(timePeriod: int):
+#     return {"top-artists": get_user_top_artists(timePeriod)}
 
 
-@app.get("/top-tracks/{timePeriod}")
-def get_top_tracks(timePeriod: int):
-    return {"top-tracks": get_user_top_tracks(timePeriod)}
+# @app.get("/top-tracks/{timePeriod}")
+# def get_top_tracks(timePeriod: int):
+#     return {"top-tracks": get_user_top_tracks(timePeriod)}
 
 
-@app.get("/top-genres/{timePeriod}")
-def get_top_genres(timePeriod: int):
-    return {"top-genres": get_user_top_genres(timePeriod)}
+# @app.get("/top-genres/{timePeriod}")
+# def get_top_genres(timePeriod: int):
+#     return {"top-genres": get_user_top_genres(timePeriod)}
 
 
-@app.get("/check-cookie")
-def check_cookie(req: Request):
-    token = req.cookies.get("access_token")
-    return {"token": token}
+# @app.get("/check-cookie")
+# def check_cookie(req: Request):
+#     token = req.cookies.get("access_token")
+#     return {"token": token}
 
 
-@app.get("/user-spotify-data")
-def user_info():
-    return {"user": get_user_data()}
+# @app.get("/user-spotify-data")
+# def user_info():
+#     return {"user": get_user_data()}
 
 
-@app.get("/user-id")
-def get_id():
-    return {"id": get_user_id()}
+# @app.get("/user-id")
+# def get_id():
+#     return {"id": get_user_id()}
