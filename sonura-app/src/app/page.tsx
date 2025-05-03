@@ -17,7 +17,7 @@ export default function Home() {
 	};
 
 	const handleSpotifyLogin = () => {
-		window.location.href = `${backendUrl}/login`;
+		window.location.href = `${backendUrl}/spotify/login`;
 	};
 
 	return (
