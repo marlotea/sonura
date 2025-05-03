@@ -1,15 +1,26 @@
 from typing import Union, Annotated
-from fastapi import FastAPI, Header, Request
+from fastapi import FastAPI, Header, Request, Response
 import requests as req
 import os
 import sqlalchemy
+from fastapi.middleware.cors import CORSMiddleware
 
 # our modules
 from routes.routes import check_version
 from db.dbConnect import Session_Local, engine, create_tables
 from spotify.utils import *
+from middleware.middleware import TokenMiddleware
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    TokenMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.on_event("startup")
@@ -82,34 +93,38 @@ async def check_db():
     info = await check_version()
     return info
 
+
 @app.get("/login")
 def log_in():
     return login()
 
+
 @app.get("/callback")
-async def callback(req: Request):
-    return await callback_func(req)
+async def callback(request: Request, response: Response):
+    return await callback_func(request, response)
+
 
 @app.get("/playlists")
 def get_playlists():
-    return {
-        "playlists" : get_user_playlists()
-    }
-    
+    return {"playlists": get_user_playlists()}
+
+
 @app.get("/top-artists/{timePeriod}")
-def get_top_artists(timePeriod : int):
-    return {
-        "top-artists" : get_user_top_artists(timePeriod)
-    }
-    
+def get_top_artists(timePeriod: int):
+    return {"top-artists": get_user_top_artists(timePeriod)}
+
+
 @app.get("/top-tracks/{timePeriod}")
-def get_top_tracks(timePeriod : int):
-    return {
-        "top-tracks" : get_user_top_tracks(timePeriod)
-    }
+def get_top_tracks(timePeriod: int):
+    return {"top-tracks": get_user_top_tracks(timePeriod)}
+
 
 @app.get("/top-genres/{timePeriod}")
-def get_top_genres(timePeriod : int):
-    return {
-        "top-genres" : get_user_top_genres(timePeriod)
-    }
+def get_top_genres(timePeriod: int):
+    return {"top-genres": get_user_top_genres(timePeriod)}
+
+
+@app.get("/check-cookie")
+def check_cookie(req: Request):
+    token = req.cookies.get("access_token")
+    return {"token": token}
