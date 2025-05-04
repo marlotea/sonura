@@ -15,6 +15,10 @@ import time
 
 load_dotenv()
 
+httponly_flag_cookies = True
+if os.getenv("ENVIRONMENT") == "dev":
+    httponly_flag_cookies = False
+
 
 class Artist(BaseModel):
     name: str
@@ -22,9 +26,8 @@ class Artist(BaseModel):
 
 client_id = os.getenv("SPOTIFY_CLIENT_ID")
 client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
-redirect_uri = "http://127.0.0.1:8000/spotify/callback"  # temp
-# redirect_uri = "http://localhost:3000/login"
-scope = "user-read-private user-read-email playlist-read-private playlist-read-collaborative user-top-read"  # should move to a type file
+redirect_uri = os.getenv("SPOTIFY_REDIRECT_URI")
+scope = os.getenv("SPOTIFY_SCOPE")
 
 sp_oauth = SpotifyOAuth(
     client_id=client_id,
@@ -35,100 +38,76 @@ sp_oauth = SpotifyOAuth(
     cache_path=".spotify_cache",
 )
 
+def create_spotify_oauth():
+    return SpotifyOAuth(
+    client_id=client_id,
+    client_secret=client_secret,
+    redirect_uri=redirect_uri,
+    scope=scope,
+    show_dialog=True,
+    cache_path=".spotify_cache",
+)
 
-def get_client():
-    return client_id, client_secret
+# class for spotify service
+class SpotifyService:
+    def __init__(self, req: Request, res: Response):
+        self.req = req
+        self.res = res
+        self.sp_oauth = create_spotify_oauth()
+        self.sp = None
 
+    def login(self):
+        auth_url = self.sp_oauth.get_authorize_url()
+        return RedirectResponse(auth_url)
 
-def get_token():
-    auth_string = client_id + ":" + client_secret
-    auth_bytes = auth_string.encode("utf-8")
-    auth_base64 = str(base64.b64encode(auth_bytes), "utf-8")
+    def callback(self):
+        code = self.req.query_params.get("code")
+        if not code:
+            return JSONResponse({"error": "No authorization code provided"}, status_code=400)
 
-    url = "https://accounts.spotify.com/api/token"
-    headers = {
-        "Authorization": "Basic " + auth_base64,
-        "Content-Type": "application/x-www-form-urlencoded",
-    }
-    data = {"grant_type": "client_credentials"}
+        try:
+            token_info = self.sp_oauth.get_access_token(code)
+            if not token_info:
+                return JSONResponse({"error": "Failed to get access token"}, status_code=500)
 
-    result = post(url, headers=headers, data=data)
-    json_result = json.loads(result.content)
-    token = json_result["access_token"]
+            self.res.set_cookie(key="access_token", value=token_info["access_token"], httponly=httponly_flag_cookies)
+            self.res.set_cookie(key="refresh_token", value=token_info.get("refresh_token", ""), httponly=httponly_flag_cookies)
+            self.res.set_cookie(key="expires_at", value=str(token_info["expires_at"]), httponly=httponly_flag_cookies)
+            
+            redirect_response = RedirectResponse("http://127.0.0.1:3000/login?auth=success")
+            redirect_response.set_cookie(key="access_token", value=token_info["access_token"], httponly=httponly_flag_cookies)
+            redirect_response.set_cookie(key="refresh_token", value=token_info.get("refresh_token", ""), httponly=httponly_flag_cookies)
+            redirect_response.set_cookie(key="expires_at", value=str(token_info["expires_at"]), httponly=httponly_flag_cookies)
 
-    return token
+            self.sp = Spotify(auth=token_info["access_token"])
 
+            return redirect_response
 
-def get_auth_header(token):
-    return {"Authorization": "Bearer " + token}
+        except Exception as e:
+            return JSONResponse({"error": f"Callback failed: {str(e)}"}, status_code=500)
 
+    def get_client(self):
+        access_token = self.req.cookies.get("access_token")
+        refresh_token = self.req.cookies.get("refresh_token")
+        expires_at = self.req.cookies.get("expires_at")
 
-# Functiosn below are the acc useful ones for this project
+        if not access_token or not refresh_token or not expires_at:
+            raise HTTPException(status_code=401, detail="Missing Tokens")
 
+        if int(time.time()) >= int(expires_at):
+            token_info = self.sp_oauth.refresh_access_token(refresh_token)
+            access_token = token_info["access_token"]
+            self.res.set_cookie(key="access_token", value=access_token, httponly=httponly_flag_cookies)
+            self.res.set_cookie(key="expires_at", value=str(token_info["expires_at"]), httponly=httponly_flag_cookies)
 
-# redirect the user to the spotify site to get perms
-def login():
-    auth_url = sp_oauth.get_authorize_url()
-    return RedirectResponse(auth_url)
-    # return auth_url
+        self.sp = Spotify(auth=access_token)
+        return self.sp
 
+    def get_user_playlists(self):
+        return self.sp.current_user_playlists()
 
-# get the different tokens from spotify, should store the tokens in a cookie or something
-async def callback_func(req: Request, res: Response):
-    code = req.query_params.get("code")
-    if not code:
-        return JSONResponse(
-            {"error": "Authorization code not provided"}, status_code=400
-        )
-
-    try:
-        token_info = sp_oauth.get_access_token(code)
-        if not token_info:
-            return JSONResponse(
-                {"error": "Failed to retrieve access token"}, status_code=500
-            )
-
-        # modify this to store tokens in a https cookie
-        global user_access_token, sp
-        user_access_token = token_info["access_token"]
-        sp = Spotify(auth=user_access_token)
-
-        frontend_url = "http://127.0.0.1:3000/login?auth=success"
-        redirect_response = RedirectResponse(url=frontend_url)
-
-        redirect_response.set_cookie(
-            key="access_token",
-            value=token_info["access_token"],
-            httponly=True,
-            secure=False,
-            samesite="lax",
-            path="/",
-        )
-
-        if "refresh_token" in token_info:
-            redirect_response.set_cookie(
-                key="refresh_token",
-                value=token_info["refresh_token"],
-                httponly=True,
-                secure=False,
-                samesite="lax",
-                path="/",
-            )
-
-        if "expires_at" in token_info:
-            redirect_response.set_cookie(
-                key="expires_at",
-                value=token_info["expires_at"],
-                httponly=True,
-                secure=False,
-                samesite="lax",
-                path="/",
-            )
-
-        return redirect_response
-
-    except Exception as e:
-        return JSONResponse({"error": f"An error occurred: {str(e)}"}, status_code=500)
+    
+    
 
 
 def refresh_access_token(refresh_token: str):
@@ -206,3 +185,29 @@ def get_spotify_client(req: Request, res: Response):
         )
 
     return Spotify(auth=access_token)
+
+def get_client():
+    return client_id, client_secret
+
+
+def get_token():
+    auth_string = client_id + ":" + client_secret
+    auth_bytes = auth_string.encode("utf-8")
+    auth_base64 = str(base64.b64encode(auth_bytes), "utf-8")
+
+    url = "https://accounts.spotify.com/api/token"
+    headers = {
+        "Authorization": "Basic " + auth_base64,
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+    data = {"grant_type": "client_credentials"}
+
+    result = post(url, headers=headers, data=data)
+    json_result = json.loads(result.content)
+    token = json_result["access_token"]
+
+    return token
+
+
+def get_auth_header(token):
+    return {"Authorization": "Bearer " + token}

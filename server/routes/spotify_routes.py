@@ -19,19 +19,22 @@ router = APIRouter()
 
 
 @router.get("/login")
-def spotify_login():
-    return login()
+async def spotify_login(req: Request):
+    spotify = SpotifyService(req, Response())
+    return spotify.login()
 
 
 @router.get("/callback")
-async def callback(request: Request, response: Response):
-    return await callback_func(request, response)
+async def callback(req: Request, res: Response):
+    spotify = SpotifyService(req, res)
+    return spotify.callback()
 
 
 @router.get("/user-data")
 def get_user_spotify_data(req: Request, res: Response):
-    sp = get_spotify_client(req, res)
-    user_info = get_user_data(sp)
+    spotify = SpotifyService(req, res)
+    sp_client = spotify.get_client()
+    user_info = get_user_data(sp_client)
     return {
         "user" : user_info
     }
