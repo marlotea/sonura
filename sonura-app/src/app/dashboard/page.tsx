@@ -13,14 +13,11 @@ export default function Page() {
 
 	useEffect(() => {
 		const fetchUserData = async () => {
-			console.log("Starting fetch for user data...");
 	
 			try {
 				const response = await fetch(`${backendUrl}/spotify/user-data`, {
 					credentials: "include",
 				});
-	
-				console.log("Response status:", response.status);
 	
 				if (!response.ok) {
 					const errorText = await response.text();
@@ -29,15 +26,12 @@ export default function Page() {
 				}
 	
 				const data = await response.json();
-				console.log("Fetched user data:", data);
-	
 				setUserData(data.user);
 			} catch (err) {
 				console.error("Error fetching user data:", err);
 				setError(err.message);
 			} finally {
 				setIsLoading(false);
-				console.log("Finished fetch attempt");
 			}
 		};
 
@@ -55,14 +49,14 @@ export default function Page() {
 
 				const data = await response.json();
 				console.log("Fetched user top tracks:", data);
-	
+
 				setTopTracks(data["top-tracks"]);
+				console.log(userTopTracks)
 			} catch (err) {
 				console.error("Error fetching user top tracks:", err);
 				setError(err.message);
 			} finally {
 				setIsLoading(false);
-				console.log("Finished fetch attempt");
 			}
 		}
 	
@@ -70,7 +64,6 @@ export default function Page() {
 		fetchUserTopTracks();
 	}, []);
 	
-	console.log("Render - userData:", userData);
 
 	return (
 		<AuroraBackground>
@@ -130,15 +123,17 @@ export default function Page() {
 								<p className="text-lg font-bold mb-2">Popular Tracks</p>
 								{isLoading && <p>Loading tracks...</p>}
 								{error && <p>Error loading tracks</p>}
-								{userTopTracks && userTopTracks.length > 0 ? (
-									<ul className="list-disc list-inside space-y-1">
-										{userTopTracks.map((trackName, index) => (
-											<li key={index}>{trackName}</li>
-										))}
-									</ul>
-								) : (
-									!isLoading && <p>No top tracks found.</p>
-								)}
+								{userTopTracks && userTopTracks.items && userTopTracks.items.length > 0 ? (
+							<ul className="list-disc list-inside space-y-1">
+								{userTopTracks.items.map((track, index) => (
+								<li key={track.id || index}>
+									{track.name} - {track.artists.map(artist => artist.name).join(", ")}
+								</li>
+								))}
+							</ul>
+							) : (
+							!isLoading && <p>No top tracks found.</p>
+							)}
 							</div>
 								</div>
 							</div>

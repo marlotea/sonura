@@ -1,15 +1,6 @@
 from dotenv import load_dotenv
-import os
-import base64
-from requests import post, get
-import json
-from pydantic import BaseModel
-import spotipy
-from spotipy import Spotify
-from spotipy.oauth2 import SpotifyOAuth
-from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi import Request, Response, APIRouter
-from collections import defaultdict
+from pydantic import BaseModel
 
 from spotify.utils import *
 
@@ -17,6 +8,9 @@ load_dotenv()
 
 router = APIRouter()
 
+# add this to a types file later
+class Song(BaseModel):
+    name: str
 
 @router.get("/login")
 async def spotify_login(req: Request):
@@ -61,3 +55,17 @@ def get_top_tracks(req: Request, res: Response, timePeriod: int, limit: int):
 def get_top_genres(req: Request, res: Response, timePeriod: int):
     spotify = SpotifyService(req, res)
     return {"top-genres": spotify.get_user_top_genres(timePeriod)}
+
+@router.post("/playlist")
+def create_playlist(req: Request, res: Response):
+    spotify = SpotifyService(req, res)
+    return {
+        "message" : spotify.create_playlist()
+        }
+    
+@router.post("/add-track")
+def add_tack(req: Request, res: Response, song: Song):
+    spotify = SpotifyService(req, res)
+    return {
+        "message" : spotify.add_to_playlist(song.name)
+    }

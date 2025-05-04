@@ -1,16 +1,13 @@
 from dotenv import load_dotenv
 import os
 import base64
-from requests import post, get
+from requests import post
 import json
-from pydantic import BaseModel
-import spotipy
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyOAuth
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi import Request, Response, HTTPException
 from collections import defaultdict
-from datetime import datetime, timedelta
 import time
 
 load_dotenv()
@@ -46,6 +43,7 @@ class SpotifyService:
 
     def login(self):
         auth_url = self.sp_oauth.get_authorize_url()
+        # return auth_url
         return RedirectResponse(auth_url)
 
     def callback(self):
@@ -97,10 +95,10 @@ class SpotifyService:
         if not self.sp:
             raise HTTPException(status_code=500, detail="Spotify client initialization failed")
         playlists = self.sp.current_user_playlists()
-        res = []
+        res = {}
         for playlist in playlists["items"]:
-            res.append(playlist["name"])
-        return res
+            res[playlist["name"]] = playlist["id"]
+        return json.dumps(res)
             
     def get_user_data(self):
         if not self.sp:
@@ -126,10 +124,7 @@ class SpotifyService:
         if not self.sp:
             raise HTTPException(status_code=500, detail="Spotify client initialization failed")
         top_tracks = self.sp.current_user_top_tracks(time_range=self.time_ranges[time_range], limit=limit)
-        res = []
-        for track in top_tracks["items"]:
-            res.append(track["name"])
-        return res
+        return top_tracks
 
     def get_user_top_genres(self, time_range: int):
         if not self.sp:
@@ -142,6 +137,70 @@ class SpotifyService:
             for genre in artist["genres"]:
                 res[genre] += 1
         return res
+    
+    def _get_sonura_playlist(self):
+        if not self.sp:
+            self.get_client()
+        if not self.sp:
+            raise HTTPException(status_code=500, detail="Spotify client initialization failed")
+        
+        playlists = self.get_user_playlists()
+        for key, value in playlists:
+            if key == "Sonura":
+                return key, value
+        return None, None
+    
+    def _get_track_uri(self, track_name: str):
+        if not self.sp:
+            self.get_client()
+        if not self.sp:
+            raise HTTPException(status_code=500, detail="Spotify client initialization failed")
+        
+        results = self.sp.search(q=track_name, type="track", limit=1)
+        tracks = results["tracks"]["items"]
+        if tracks:
+            return tracks[0]["uri"]
+        return None
+    
+    def create_playlist(self):
+        if not self.sp:
+            self.get_client()
+        if not self.sp:
+            raise HTTPException(status_code=500, detail="Spotify client initialization failed")
+        
+        user_id = self.sp.me()["id"]
+        
+        # check if the sonura playlist already exists
+        playlist_name, playlist_id = self._get_sonura_playlist()
+        if playlist_name and playlist_id:
+            return "Sonura playlist already exists"
+        
+        self.sp.user_playlist_create(
+            user=user_id,
+            name="Sonura",
+            public=True,
+            description="Created with Sonura"
+        )
+        
+        return "Successfully created Sonura Playlist"
+    
+    def add_to_playlist(self, track_uri: str):
+        if not self.sp:
+            self.get_client()
+        if not self.sp:
+            raise HTTPException(status_code=500, detail="Spotify client initialization failed")
+        
+        playlist_name, playlist_id = self._get_sonura_playlist()
+        if not playlist_name or not playlist_id:
+            self.create_playlist()
+        
+        self.sp.playlist_add_items(playlist_id=playlist_id, items=[self._get_track_uri(track_uri)])
+        return f"Successfully added track {track_uri} to Sonura playlist"
+        
+        
+        
+        
+    
 
 
 # stuff from yt
