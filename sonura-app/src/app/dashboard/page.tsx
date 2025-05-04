@@ -10,6 +10,7 @@ export default function Page() {
 	const [userTopTracks, setTopTracks] = useState(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState(null);
+	const [spotifyConnection, setSpotifyConnection] = useState("not connected");
 
 	useEffect(() => {
 		const fetchUserData = async () => {
@@ -27,6 +28,12 @@ export default function Page() {
 	
 				const data = await response.json();
 				setUserData(data.user);
+
+				if (data.user) {
+					setUserData(data.user);
+					setSpotifyConnection("connected!");
+				}
+
 			} catch (err) {
 				console.error("Error fetching user data:", err);
 				setError(err.message);
@@ -98,7 +105,7 @@ export default function Page() {
 												: "No username"}
 								</p>
 
-									<p>[status] connected to Spotify</p>
+									<p>Spotify account {spotifyConnection}</p>
 									<p>your taste:</p>
 								</div>
 

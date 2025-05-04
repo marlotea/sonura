@@ -12,6 +12,7 @@ import time
 
 load_dotenv()
 
+# env variables
 httponly_flag_cookies = True
 if os.getenv("ENVIRONMENT") == "dev":
     httponly_flag_cookies = False
