@@ -19,24 +19,10 @@ httponly_flag_cookies = True
 if os.getenv("ENVIRONMENT") == "dev":
     httponly_flag_cookies = False
 
-
-class Artist(BaseModel):
-    name: str
-
-
 client_id = os.getenv("SPOTIFY_CLIENT_ID")
 client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
 redirect_uri = os.getenv("SPOTIFY_REDIRECT_URI")
 scope = os.getenv("SPOTIFY_SCOPE")
-
-sp_oauth = SpotifyOAuth(
-    client_id=client_id,
-    client_secret=client_secret,
-    redirect_uri=redirect_uri,
-    scope=scope,
-    show_dialog=True,
-    cache_path=".spotify_cache",
-)
 
 def create_spotify_oauth():
     return SpotifyOAuth(
@@ -55,6 +41,8 @@ class SpotifyService:
         self.res = res
         self.sp_oauth = create_spotify_oauth()
         self.sp = None
+        
+        self.time_ranges = {1: "short_term", 2: "medium_term", 3: "long_term"}
 
     def login(self):
         auth_url = self.sp_oauth.get_authorize_url()
@@ -102,94 +90,61 @@ class SpotifyService:
 
         self.sp = Spotify(auth=access_token)
         return self.sp
-
+    
     def get_user_playlists(self):
-        return self.sp.current_user_playlists()
-
+        if not self.sp:
+            self.get_client()
+        if not self.sp:
+            raise HTTPException(status_code=500, detail="Spotify client initialization failed")
+        playlists = self.sp.current_user_playlists()
+        res = []
+        for playlist in playlists["items"]:
+            res.append(playlist["name"])
+        return res
+            
+    def get_user_data(self):
+        if not self.sp:
+            self.get_client()
+        if not self.sp:
+            raise HTTPException(status_code=500, detail="Spotify client initialization failed")
+        return self.sp.current_user()
     
+    def get_user_top_artists(self, time_range: int):
+        if not self.sp:
+            self.get_client()
+        if not self.sp:
+            raise HTTPException(status_code=500, detail="Spotify client initialization failed")
+        top_artists = self.sp.current_user_top_artists(time_range=self.time_ranges[time_range])
+        res = []
+        for artist in top_artists["items"]:
+            res.append(artist)
+        return res
     
+    def get_user_top_tracks(self, time_range: int, limit: int):
+        if not self.sp:
+            self.get_client()
+        if not self.sp:
+            raise HTTPException(status_code=500, detail="Spotify client initialization failed")
+        top_tracks = self.sp.current_user_top_tracks(time_range=self.time_ranges[time_range], limit=limit)
+        res = []
+        for track in top_tracks["items"]:
+            res.append(track["name"])
+        return res
+
+    def get_user_top_genres(self, time_range: int):
+        if not self.sp:
+            self.get_client()
+        if not self.sp:
+            raise HTTPException(status_code=500, detail="Spotify client initialization failed")
+        top_artists = self.get_user_top_artists(time_range)
+        res: defaultdict[str, int] = defaultdict(int)
+        for artist in top_artists:
+            for genre in artist["genres"]:
+                res[genre] += 1
+        return res
 
 
-def refresh_access_token(refresh_token: str):
-    global user_access_token
-    token_info = sp_oauth.refresh_access_token(refresh_token)
-    user_access_token = token_info["access_token"]
-
-
-def get_user_playlists():
-    playlists = sp.current_user_playlists()
-    res = []
-    for playlist in playlists["items"]:
-        res.append(playlist["name"])
-    return res
-
-
-# store this in a type file later
-time_ranges = {1: "short_term", 2: "medium_term", 3: "long_term"}
-
-
-def get_user_top_artists(sp: Spotify, time_range: int):
-    top_artists = sp.current_user_top_artists(time_range=time_ranges[time_range])
-    res = []
-    for artist in top_artists["items"]:
-        res.append(artist)
-    return res
-
-
-def get_user_top_tracks(sp: Spotify, time_range: int, limit: int):
-    top_tracks = sp.current_user_top_tracks(time_range=time_ranges[time_range], limit=limit)
-    res = []
-    for track in top_tracks["items"]:
-        res.append(track["name"])
-    return res
-
-
-# returns a hashmap of genres and its "popularity" for the user, counts its frequency among the users favourite artists
-def get_user_top_genres(sp: Spotify, time_range: int):
-    top_artists = get_user_top_artists(time_range)
-    res = defaultdict(int)
-    for artist in top_artists:
-        for genre in artist["genres"]:
-            res[genre] += 1
-    return res
-
-
-def get_user_data(sp: Spotify):
-    user_info = sp.current_user()
-    return user_info
-
-
-def get_user_id():
-    user_info = get_user_data()
-    return user_info["id"]
-
-
-def get_spotify_client(req: Request, res: Response):
-    access_token = req.cookies.get("access_token")
-    refresh_token = req.cookies.get("refresh_token")
-    expires_at = req.cookies.get("expires_at")
-
-    if not access_token or not refresh_token or not expires_at:
-        raise HTTPException(status_code=401, detail="Missing auth tokens")
-
-    # refresh access tokens if expired && update cookies
-    if int(time.time()) >= int(expires_at):
-        token_info = sp_oauth.refresh_access_token(refresh_token)
-        access_token = token_info["access_token"]
-        expires_at = token_info["expires_at"]
-        res.set_cookie(
-            key="access_token", value=access_token, httponly=True, secure=False
-        )
-        res.set_cookie(
-            key="expires_at", value=str(expires_at), httponly=True, secure=False
-        )
-
-    return Spotify(auth=access_token)
-
-def get_client():
-    return client_id, client_secret
-
-
+# stuff from yt
 def get_token():
     auth_string = client_id + ":" + client_secret
     auth_bytes = auth_string.encode("utf-8")
