@@ -73,26 +73,9 @@ class SpotifyService:
         except Exception as e:
             return JSONResponse({"error": f"Callback failed: {str(e)}"}, status_code=500)
 
-    def get_client(self):
-        access_token = self.req.cookies.get("access_token")
-        refresh_token = self.req.cookies.get("refresh_token")
-        expires_at = self.req.cookies.get("expires_at")
-
-        if not access_token or not refresh_token or not expires_at:
-            raise HTTPException(status_code=401, detail="Missing Tokens")
-
-        if int(time.time()) >= int(expires_at):
-            token_info = self.sp_oauth.refresh_access_token(refresh_token)
-            access_token = token_info["access_token"]
-            self.res.set_cookie(key="access_token", value=access_token, httponly=httponly_flag_cookies)
-            self.res.set_cookie(key="expires_at", value=str(token_info["expires_at"]), httponly=httponly_flag_cookies)
-
-        self.sp = Spotify(auth=access_token)
-        return self.sp
-    
     def get_user_playlists(self):
         if not self.sp:
-            self.get_client()
+            self._get_client()
         if not self.sp:
             raise HTTPException(status_code=500, detail="Spotify client initialization failed")
         playlists = self.sp.current_user_playlists()
@@ -103,14 +86,14 @@ class SpotifyService:
             
     def get_user_data(self):
         if not self.sp:
-            self.get_client()
+            self._get_client()
         if not self.sp:
             raise HTTPException(status_code=500, detail="Spotify client initialization failed")
         return self.sp.current_user()
     
     def get_user_top_artists(self, time_range: int):
         if not self.sp:
-            self.get_client()
+            self._get_client()
         if not self.sp:
             raise HTTPException(status_code=500, detail="Spotify client initialization failed")
         top_artists = self.sp.current_user_top_artists(time_range=self.time_ranges[time_range])
@@ -121,7 +104,7 @@ class SpotifyService:
     
     def get_user_top_tracks(self, time_range: int, limit: int):
         if not self.sp:
-            self.get_client()
+            self._get_client()
         if not self.sp:
             raise HTTPException(status_code=500, detail="Spotify client initialization failed")
         top_tracks = self.sp.current_user_top_tracks(time_range=self.time_ranges[time_range], limit=limit)
@@ -129,7 +112,7 @@ class SpotifyService:
 
     def get_user_top_genres(self, time_range: int):
         if not self.sp:
-            self.get_client()
+            self._get_client()
         if not self.sp:
             raise HTTPException(status_code=500, detail="Spotify client initialization failed")
         top_artists = self.get_user_top_artists(time_range)
@@ -139,33 +122,9 @@ class SpotifyService:
                 res[genre] += 1
         return res
     
-    def _get_sonura_playlist(self):
-        if not self.sp:
-            self.get_client()
-        if not self.sp:
-            raise HTTPException(status_code=500, detail="Spotify client initialization failed")
-        
-        playlists = self.get_user_playlists()
-        for key, value in playlists:
-            if key == "Sonura":
-                return key, value
-        return None, None
-    
-    def _get_track_uri(self, track_name: str):
-        if not self.sp:
-            self.get_client()
-        if not self.sp:
-            raise HTTPException(status_code=500, detail="Spotify client initialization failed")
-        
-        results = self.sp.search(q=track_name, type="track", limit=1)
-        tracks = results["tracks"]["items"]
-        if tracks:
-            return tracks[0]["uri"]
-        return None
-    
     def create_playlist(self):
         if not self.sp:
-            self.get_client()
+            self._get_client()
         if not self.sp:
             raise HTTPException(status_code=500, detail="Spotify client initialization failed")
         
@@ -187,7 +146,7 @@ class SpotifyService:
     
     def add_to_playlist(self, track_uri: str):
         if not self.sp:
-            self.get_client()
+            self._get_client()
         if not self.sp:
             raise HTTPException(status_code=500, detail="Spotify client initialization failed")
         
@@ -197,6 +156,48 @@ class SpotifyService:
         
         self.sp.playlist_add_items(playlist_id=playlist_id, items=[self._get_track_uri(track_uri)])
         return f"Successfully added track {track_uri} to Sonura playlist"
+    
+    def _get_client(self):
+        access_token = self.req.cookies.get("access_token")
+        refresh_token = self.req.cookies.get("refresh_token")
+        expires_at = self.req.cookies.get("expires_at")
+
+        if not access_token or not refresh_token or not expires_at:
+            raise HTTPException(status_code=401, detail="Missing Tokens")
+
+        if int(time.time()) >= int(expires_at):
+            token_info = self.sp_oauth.refresh_access_token(refresh_token)
+            access_token = token_info["access_token"]
+            self.res.set_cookie(key="access_token", value=access_token, httponly=httponly_flag_cookies)
+            self.res.set_cookie(key="expires_at", value=str(token_info["expires_at"]), httponly=httponly_flag_cookies)
+
+        self.sp = Spotify(auth=access_token)
+        return self.sp
+    
+    def _get_sonura_playlist(self):
+        if not self.sp:
+            self._get_client()
+        if not self.sp:
+            raise HTTPException(status_code=500, detail="Spotify client initialization failed")
+        
+        playlists = self.get_user_playlists()
+        for key, value in playlists:
+            if key == "Sonura":
+                return key, value
+        return None, None
+    
+    def _get_track_uri(self, track_name: str):
+        if not self.sp:
+            self._get_client()
+        if not self.sp:
+            raise HTTPException(status_code=500, detail="Spotify client initialization failed")
+        
+        results = self.sp.search(q=track_name, type="track", limit=1)
+        tracks = results["tracks"]["items"]
+        if tracks:
+            return tracks[0]["uri"]
+        return None
+    
         
         
         

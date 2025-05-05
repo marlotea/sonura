@@ -64,7 +64,7 @@ def create_playlist(req: Request, res: Response):
         }
     
 @router.post("/add-track")
-def add_tack(req: Request, res: Response, song: Song):
+def add_track(req: Request, res: Response, song: Song):
     spotify = SpotifyService(req, res)
     return {
         "message" : spotify.add_to_playlist(song.name)
