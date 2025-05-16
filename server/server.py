@@ -48,3 +48,8 @@ async def check_db():
     info = await check_version()
     return info
 
+@app.get("/get_recs")
+def get_rec():
+    return {
+        "message" : "success"
+    }
