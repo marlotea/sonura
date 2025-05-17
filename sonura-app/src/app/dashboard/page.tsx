@@ -11,27 +11,41 @@ export default function Page() {
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState(null);
 	const [spotifyConnection, setSpotifyConnection] = useState("not connected");
+	const [loggedIn, setLoggedIn] = useState(false);
 
 	useEffect(() => {
-		const fetchUserData = async () => {
+		let intervalId;
+
+		const checkLogInStatus = async () => {
 			try {
-				const response = await fetch(`${backendUrl}/spotify/user-data`, {
+				const response = await fetch("/api/spotify/session-check", {
 					credentials: "include",
 				});
+				const data = await response.json();
 
-				if (!response.ok) {
-					const errorText = await response.text();
-					console.error("Fetch failed with response:", errorText);
-					throw new Error("Failed to fetch user data");
+				if (data.loggedin) {
+					setLoggedIn(true);
+				} else {
+					console.warn("Session expired. Redirecting to login.");
+					window.location.href = "/";
 				}
+			} catch (e) {
+				console.error("Error checking session:", e.message);
+				setError(e.message);
+				window.location.href = "/";
+			}
+		};
+
+		const fetchUserData = async () => {
+			try {
+				const response = await fetch("/api/spotify/user-data", {
+					credentials: "include",
+				});
+				if (!response.ok) throw new Error("Failed to fetch user data");
 
 				const data = await response.json();
 				setUserData(data.user);
-
-				if (data.user) {
-					setUserData(data.user);
-					setSpotifyConnection("connected!");
-				}
+				setSpotifyConnection("connected!");
 			} catch (err) {
 				console.error("Error fetching user data:", err);
 				setError(err.message);
@@ -42,21 +56,13 @@ export default function Page() {
 
 		const fetchUserTopTracks = async () => {
 			try {
-				const response = await fetch(`${backendUrl}/spotify/top-tracks/1/5`, {
+				const response = await fetch("/api/spotify/top-tracks/1/5", {
 					credentials: "include",
 				});
-
-				if (!response.ok) {
-					const errorText = await response.text();
-					console.error("Fetch failed with response:", errorText);
-					throw new Error("Failed to fetch user top tracks");
-				}
+				if (!response.ok) throw new Error("Failed to fetch top tracks");
 
 				const data = await response.json();
-				console.log("Fetched user top tracks:", data);
-
 				setTopTracks(data["top-tracks"]);
-				console.log(userTopTracks);
 			} catch (err) {
 				console.error("Error fetching user top tracks:", err);
 				setError(err.message);
@@ -65,8 +71,13 @@ export default function Page() {
 			}
 		};
 
+		checkLogInStatus();
 		fetchUserData();
 		fetchUserTopTracks();
+
+		intervalId = setInterval(checkLogInStatus, 5000 * 60); // every 5 minutes
+
+		return () => clearInterval(intervalId);
 	}, []);
 
 	return (

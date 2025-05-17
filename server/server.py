@@ -27,7 +27,7 @@ app.add_middleware(
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SECRET_KEY_MEOW"), 
-    max_age=3600,
+    max_age=3600 * 24 * 7, # 1 week
     same_site="lax",
     https_only=not os.getenv("ENVIRONMENT") == "dev"
 )

@@ -2,7 +2,6 @@ from dotenv import load_dotenv
 from fastapi import Request, Response, APIRouter
 from pydantic import BaseModel
 
-
 # our modules
 from spotify.utils import *
 
@@ -25,6 +24,15 @@ async def logout(request: Request):
     request.session.clear()
     return RedirectResponse(url="/")
 
+@router.get("/session-check")
+async def session_check(req: Request):
+    if "spotify_id" not in req.session:
+        return {
+            "loggedin" : False
+        }
+    return {
+        "loggedin" : True
+    }
 
 @router.get("/callback")
 async def callback(req: Request, res: Response):
