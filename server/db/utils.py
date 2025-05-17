@@ -1,5 +1,6 @@
 from models.UserModels import User, UserSong
 from db.dbConnect import Session_Local
+import datetime
 
 db = Session_Local()
 
@@ -21,5 +22,10 @@ def user_exists(spotify_id):
 def query_user_refresh_token(spotify_id):
     id = db.query(User).filter_by(spotify_id=spotify_id).first().spotify_id
     return id
+
+def add_song(user_id, song_id):
+    new_song = UserSong(user_id=user_id, song_id=song_id, added_at=datetime.datetime.now())
+    db.add(new_song)
+    db.commit()
 
 
