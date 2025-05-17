@@ -12,7 +12,7 @@ import time
 
 # our modules
 from models.UserModels import User, UserSong
-from db.utils import create_new_user, query_user, user_exists, query_user_refresh_token
+from db.utils import create_new_user, query_user, user_exists, query_user_refresh_token, add_user_songs, add_song, delete_all_user_songs
 
 load_dotenv()
 
@@ -77,6 +77,9 @@ class SpotifyService:
             self.req.session["access_token"] = access_token
             self.req.session["expires_at"] = expires_at
             
+            delete_all_user_songs(sp_user_id)
+            self._add_songs_to_db()
+            
             return redirect_response
 
         except Exception as e:
@@ -91,7 +94,7 @@ class SpotifyService:
         res = {}
         for playlist in playlists["items"]:
             res[playlist["name"]] = playlist["id"]
-        return json.dumps(res)
+        return res
             
     def get_user_data(self):
         if not self.sp:
@@ -187,6 +190,24 @@ class SpotifyService:
         self.sp = Spotify(auth=access_token)
         return self.sp
     
+    def _add_songs_to_db(self):
+        if not self.sp:
+            self._get_client()
+        if not self.sp:
+            raise HTTPException(status_code=500, detail="Spotify client initialization failed")
+        try:
+            top_tracks = self.get_user_top_tracks(2, 50)
+            top_tracks_ids = []
+            for track in top_tracks["items"]:
+                top_tracks_ids.append(track["id"])
+            add_user_songs(self.req.session.get("spotify_id"), top_tracks_ids)
+            return {
+                "message" : "Successfully added songs to db"
+            }
+        except Exception as e:
+            return JSONResponse({"error": f"Adding to db failed: {str(e)}"}, status_code=400)
+        
+    
     def _get_new_access_token(self, spotify_id):
         refresh_token = query_user_refresh_token(spotify_id)
         return refresh_token
@@ -198,7 +219,7 @@ class SpotifyService:
             raise HTTPException(status_code=500, detail="Spotify client initialization failed")
         
         playlists = self.get_user_playlists()
-        for key, value in playlists:
+        for key, value in playlists.items():
             if key == "Sonura":
                 return key, value
         return None, None
@@ -214,33 +235,3 @@ class SpotifyService:
         if tracks:
             return tracks[0]["uri"]
         return None
-    
-        
-        
-        
-        
-    
-
-
-# stuff from yt
-def get_token():
-    auth_string = client_id + ":" + client_secret
-    auth_bytes = auth_string.encode("utf-8")
-    auth_base64 = str(base64.b64encode(auth_bytes), "utf-8")
-
-    url = "https://accounts.spotify.com/api/token"
-    headers = {
-        "Authorization": "Basic " + auth_base64,
-        "Content-Type": "application/x-www-form-urlencoded",
-    }
-    data = {"grant_type": "client_credentials"}
-
-    result = post(url, headers=headers, data=data)
-    json_result = json.loads(result.content)
-    token = json_result["access_token"]
-
-    return token
-
-
-def get_auth_header(token):
-    return {"Authorization": "Bearer " + token}
