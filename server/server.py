@@ -4,13 +4,16 @@ import requests as req
 import os
 import sqlalchemy
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # our modules
 from routes.routes import check_version
 from db.dbConnect import Session_Local, engine, create_tables
 from spotify.utils import *
 from routes.spotify_routes import router as spotify_router
-
 app = FastAPI()
 
 app.add_middleware(
@@ -21,8 +24,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(spotify_router, prefix="/spotify")
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("SECRET_KEY_MEOW"), 
+    max_age=3600,
+    same_site="lax",
+    https_only=not os.getenv("ENVIRONMENT") == "dev"
+)
 
+app.include_router(spotify_router, prefix="/spotify")
 
 @app.on_event("startup")
 async def startup():

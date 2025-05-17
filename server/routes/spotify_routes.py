@@ -2,11 +2,14 @@ from dotenv import load_dotenv
 from fastapi import Request, Response, APIRouter
 from pydantic import BaseModel
 
+
+# our modules
 from spotify.utils import *
 
 load_dotenv()
 
 router = APIRouter()
+
 
 # add this to a types file later
 class Song(BaseModel):
@@ -16,6 +19,11 @@ class Song(BaseModel):
 async def spotify_login(req: Request):
     spotify = SpotifyService(req, Response())
     return spotify.login()
+
+@router.get("/logout")
+async def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse(url="/")
 
 
 @router.get("/callback")

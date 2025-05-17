@@ -1,21 +1,35 @@
 from pydantic import BaseModel
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.postgresql import JSONB
+from datetime import datetime
 
 Base = declarative_base()
 
-class Music_Profile(BaseModel):
-    top_genre : str | None
+from sqlalchemy.orm import relationship
 
 class User(Base):
     __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    spotify_id = Column(String, unique=True)
+    spotify_display_name = Column(String)
+    spotify_refresh_token = Column(String)
+
+    songs = relationship("UserSong", back_populates="user", cascade="all, delete-orphan")
+
+
     
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    username: Mapped[str] = mapped_column(String(100), unique=True)
-    email: Mapped[str] = mapped_column(String(100), unique=True)
-    password: Mapped[str] = mapped_column(String(100))
-    salt: Mapped[str] = mapped_column(String(100))
-    spotify_username: Mapped[str] = mapped_column(String(100))
-    music_profile: Mapped[dict] = mapped_column(JSONB)
+class UserSong(Base):
+    __tablename__ = "user_songs"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    song_id = Column(String, index=True)
+    added_at = Column(DateTime, default=datetime.utcnow)
+    
+    user = relationship("User", back_populates="songs")
+
+    
+    

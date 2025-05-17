@@ -5,7 +5,7 @@ import { Gear, ShareNetwork } from "phosphor-react";
 import { useEffect, useState } from "react";
 
 export default function Page() {
-	const backendUrl = "/api"
+	const backendUrl = "/api";
 	const [userData, setUserData] = useState(null);
 	const [userTopTracks, setTopTracks] = useState(null);
 	const [isLoading, setIsLoading] = useState(true);
@@ -14,18 +14,17 @@ export default function Page() {
 
 	useEffect(() => {
 		const fetchUserData = async () => {
-	
 			try {
 				const response = await fetch(`${backendUrl}/spotify/user-data`, {
 					credentials: "include",
 				});
-	
+
 				if (!response.ok) {
 					const errorText = await response.text();
 					console.error("Fetch failed with response:", errorText);
 					throw new Error("Failed to fetch user data");
 				}
-	
+
 				const data = await response.json();
 				setUserData(data.user);
 
@@ -33,7 +32,6 @@ export default function Page() {
 					setUserData(data.user);
 					setSpotifyConnection("connected!");
 				}
-
 			} catch (err) {
 				console.error("Error fetching user data:", err);
 				setError(err.message);
@@ -44,8 +42,8 @@ export default function Page() {
 
 		const fetchUserTopTracks = async () => {
 			try {
-				const response = await fetch(`${backendUrl}/spotify/top-tracks/1/10`, {
-					credentials: "include"
+				const response = await fetch(`${backendUrl}/spotify/top-tracks/1/5`, {
+					credentials: "include",
 				});
 
 				if (!response.ok) {
@@ -58,19 +56,18 @@ export default function Page() {
 				console.log("Fetched user top tracks:", data);
 
 				setTopTracks(data["top-tracks"]);
-				console.log(userTopTracks)
+				console.log(userTopTracks);
 			} catch (err) {
 				console.error("Error fetching user top tracks:", err);
 				setError(err.message);
 			} finally {
 				setIsLoading(false);
 			}
-		}
-	
+		};
+
 		fetchUserData();
 		fetchUserTopTracks();
 	}, []);
-	
 
 	return (
 		<AuroraBackground>
@@ -84,26 +81,26 @@ export default function Page() {
 							<div className="w-1/4 flex flex-col justify-between">
 								{/*  Profile Picture Placeholder  */}
 								<div className="flex flex-col items-center gap-2">
-								<div className="w-45 h-45 rounded-full bg-gray-300 overflow-hidden">
-									{userData?.images?.length > 0 ? (
-										<img
-											src={userData.images[0].url}
-											alt="Profile"
-											className="w-full h-full object-cover"
-										/>
-									) : (
-										<div className="w-full h-full bg-gray-300" />
-									)}
-								</div>
+									<div className="w-45 h-45 rounded-full bg-gray-300 overflow-hidden">
+										{userData?.images?.length > 0 ? (
+											<img
+												src={userData.images[0].url}
+												alt="Profile"
+												className="w-full h-full object-cover"
+											/>
+										) : (
+											<div className="w-full h-full bg-gray-300" />
+										)}
+									</div>
 									<p className="bold text-xl">
-									{isLoading
-										? "Loading..."
-										: error
-											? "Error loading username"
-											: userData
-												? userData.display_name
-												: "No username"}
-								</p>
+										{isLoading
+											? "Loading..."
+											: error
+												? "Error loading username"
+												: userData
+													? userData.display_name
+													: "No username"}
+									</p>
 
 									<p>Spotify account {spotifyConnection}</p>
 									<p>your taste:</p>
@@ -127,21 +124,26 @@ export default function Page() {
 								<div className="flex flex-row">
 									<div className="w-1/2">Recently Liked Songs</div>
 									<div className="w-1/2">
-								<p className="text-lg font-bold mb-2">Popular Tracks</p>
-								{isLoading && <p>Loading tracks...</p>}
-								{error && <p>Error loading tracks</p>}
-								{userTopTracks && userTopTracks.items && userTopTracks.items.length > 0 ? (
-							<ul className="list-disc list-inside space-y-1">
-								{userTopTracks.items.map((track, index) => (
-								<li key={track.id || index}>
-									{track.name} - {track.artists.map(artist => artist.name).join(", ")}
-								</li>
-								))}
-							</ul>
-							) : (
-							!isLoading && <p>No top tracks found.</p>
-							)}
-							</div>
+										<p className="text-lg font-bold mb-2">Popular Tracks</p>
+										{isLoading && <p>Loading tracks...</p>}
+										{error && <p>Error loading tracks</p>}
+										{userTopTracks &&
+										userTopTracks.items &&
+										userTopTracks.items.length > 0 ? (
+											<ul className="list-disc list-inside space-y-1">
+												{userTopTracks.items.map((track, index) => (
+													<li key={track.id || index}>
+														{track.name} -{" "}
+														{track.artists
+															.map((artist) => artist.name)
+															.join(", ")}
+													</li>
+												))}
+											</ul>
+										) : (
+											!isLoading && <p>No top tracks found.</p>
+										)}
+									</div>
 								</div>
 							</div>
 						</div>

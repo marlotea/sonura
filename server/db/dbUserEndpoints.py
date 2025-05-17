@@ -1,11 +1,8 @@
 from dotenv import load_dotenv
 load_dotenv()
 import os
-import psycopg2
-import bcrypt
-from utils import hash
 
-from ..models.UserModels import User, Music_Profile
+from ..models.UserModels import User, UserSong
 
 DB_URL = os.getenv("DB_URL")
 

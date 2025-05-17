@@ -10,6 +10,10 @@ from fastapi import Request, Response, HTTPException
 from collections import defaultdict
 import time
 
+# our modules
+from models.UserModels import User, UserSong
+from db.utils import create_new_user, query_user, user_exists, query_user_refresh_token
+
 load_dotenv()
 
 # env variables
@@ -56,18 +60,23 @@ class SpotifyService:
             token_info = self.sp_oauth.get_access_token(code)
             if not token_info:
                 return JSONResponse({"error": "Failed to get access token"}, status_code=500)
-
-            self.res.set_cookie(key="access_token", value=token_info["access_token"], httponly=httponly_flag_cookies)
-            self.res.set_cookie(key="refresh_token", value=token_info.get("refresh_token", ""), httponly=httponly_flag_cookies)
-            self.res.set_cookie(key="expires_at", value=str(token_info["expires_at"]), httponly=httponly_flag_cookies)
             
-            redirect_response = RedirectResponse("http://127.0.0.1:3000/login?auth=success")
-            redirect_response.set_cookie(key="access_token", value=token_info["access_token"], httponly=httponly_flag_cookies)
-            redirect_response.set_cookie(key="refresh_token", value=token_info.get("refresh_token", ""), httponly=httponly_flag_cookies)
-            redirect_response.set_cookie(key="expires_at", value=str(token_info["expires_at"]), httponly=httponly_flag_cookies)
-
+            access_token = token_info["access_token"]
+            expires_at = token_info["expires_at"]
+            refresh_token = token_info["refresh_token"]
+            
+            redirect_response = RedirectResponse("http://127.0.0.1:3000/dashboard")
             self.sp = Spotify(auth=token_info["access_token"])
-
+            
+            sp_user_id = self.sp.current_user()["id"]
+            sp_user_display_name = self.sp.current_user()["display_name"]
+            if not user_exists(sp_user_id):
+                create_new_user(sp_user_id, sp_user_display_name, refresh_token)
+                
+            self.req.session["spotify_id"] = sp_user_id
+            self.req.session["access_token"] = access_token
+            self.req.session["expires_at"] = expires_at
+            
             return redirect_response
 
         except Exception as e:
@@ -158,21 +167,29 @@ class SpotifyService:
         return f"Successfully added track {track_uri} to Sonura playlist"
     
     def _get_client(self):
-        access_token = self.req.cookies.get("access_token")
-        refresh_token = self.req.cookies.get("refresh_token")
-        expires_at = self.req.cookies.get("expires_at")
+        access_token = self.req.session.get("access_token")
+        expires_at = self.req.session.get("expires_at")
+        sp_user_id = self.req.session.get("spotify_id")
+        
+        if not sp_user_id:
+            raise HTTPException(status_code=401, detail="No Spotify ID in session")
 
-        if not access_token or not refresh_token or not expires_at:
+        if not access_token or not expires_at:
             raise HTTPException(status_code=401, detail="Missing Tokens")
 
         if int(time.time()) >= int(expires_at):
+            refresh_token = self._get_new_access_token(sp_user_id)
             token_info = self.sp_oauth.refresh_access_token(refresh_token)
             access_token = token_info["access_token"]
-            self.res.set_cookie(key="access_token", value=access_token, httponly=httponly_flag_cookies)
-            self.res.set_cookie(key="expires_at", value=str(token_info["expires_at"]), httponly=httponly_flag_cookies)
+            self.req.session["access_token"] = access_token
+            self.req.session["expires_at"] = expires_at
 
         self.sp = Spotify(auth=access_token)
         return self.sp
+    
+    def _get_new_access_token(self, spotify_id):
+        refresh_token = query_user_refresh_token(spotify_id)
+        return refresh_token
     
     def _get_sonura_playlist(self):
         if not self.sp:
